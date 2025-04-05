@@ -3,6 +3,7 @@
 import tweepy
 import os
 import json
+import time
 from datetime import datetime
 from topic_analysis import analyze_trending_topics, create_summary
 
@@ -29,7 +30,7 @@ def run_twitter_bot():
         access_token_secret=access_token_secret
     )
     
-    # 1. Collect Data
+    # 1. Collect Data with rate limit handling
     print("Collecting community tweets...")
     
     # Define Nigerian UK community ID
@@ -38,16 +39,57 @@ def run_twitter_bot():
     # For Basic tier API, focus on general Nigerian UK conversations
     search_query = "(Nigerian UK OR Nigerians in UK OR Nigerian London OR Naija UK OR UK Naija OR Nigerian Britain) -is:retweet"
     
-    # Collect tweets with engagement metrics
-    tweets = read_client.search_recent_tweets(
-        query=search_query,
-        max_results=100,  # Free tier maximum
-        tweet_fields=["created_at", "public_metrics", "entities", "author_id", "conversation_id"],
-        sort_order="relevancy"  # This prioritizes tweets with higher engagement
-    )
+    # Add rate limit handling
+    tweet_data = None
+    max_retries = 3
+    retry_count = 0
+    retry_delay = 15  # seconds
     
-    if not tweets.data:
-        print("No tweets found. Exiting.")
+    while retry_count < max_retries and tweet_data is None:
+        try:
+            # Reduce max_results to be gentler on rate limits
+            tweets = read_client.search_recent_tweets(
+                query=search_query,
+                max_results=10,  # Reduced from 100 to avoid rate limits
+                tweet_fields=["created_at", "public_metrics", "entities", "author_id", "conversation_id"],
+                sort_order="relevancy"  # This prioritizes tweets with higher engagement
+            )
+            tweet_data = tweets
+            break
+        except tweepy.errors.TooManyRequests as e:
+            retry_count += 1
+            if retry_count < max_retries:
+                print(f"Rate limit exceeded. Waiting {retry_delay} seconds before retry {retry_count}/{max_retries}...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                print("Maximum retries reached. Using empty data set.")
+                # Create empty placeholder for processing to continue
+                from collections import namedtuple
+                EmptyData = namedtuple('EmptyData', ['data'])
+                tweet_data = EmptyData(data=[])
+        except Exception as e:
+            print(f"Error collecting tweets: {e}")
+            # Create empty placeholder for processing to continue
+            from collections import namedtuple
+            EmptyData = namedtuple('EmptyData', ['data'])
+            tweet_data = EmptyData(data=[])
+            break
+    
+    # Use the collected tweets (or empty data if failed)
+    tweets = tweet_data
+    
+    if not hasattr(tweets, 'data') or not tweets.data:
+        print("No tweets found. Creating minimal summary.")
+        tweet_count = 0
+        # Create a fallback message instead of exiting
+        fallback_message = "Today's Nigerian UK community update: Not enough data available today. Will try again tomorrow!"
+        try:
+            print("Posting fallback message...")
+            write_client.create_tweet(text=fallback_message)
+            print("Posted fallback message successfully")
+        except Exception as e:
+            print(f"Error posting fallback message: {e}")
         return
     
     tweet_count = len(tweets.data)
