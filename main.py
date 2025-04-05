@@ -32,14 +32,18 @@ def run_twitter_bot():
     # 1. Collect Data
     print("Collecting community tweets...")
     
-    # Define your community search terms
-    search_query = "(#YourCommunity OR #Topic1 OR #Topic2) -is:retweet"
+    # Define Nigerian UK community ID
+    community_id = "1503991265226022912"
     
-    # Collect tweets (free tier allows 100 per request)
+    # For Basic tier API, focus on general Nigerian UK conversations
+    search_query = "(Nigerian UK OR Nigerians in UK OR Nigerian London OR Naija UK OR UK Naija OR Nigerian Britain) -is:retweet"
+    
+    # Collect tweets with engagement metrics
     tweets = read_client.search_recent_tweets(
         query=search_query,
-        max_results=100,
-        tweet_fields=["created_at", "public_metrics", "entities"]
+        max_results=100,  # Free tier maximum
+        tweet_fields=["created_at", "public_metrics", "entities", "author_id", "conversation_id"],
+        sort_order="relevancy"  # This prioritizes tweets with higher engagement
     )
     
     if not tweets.data:
