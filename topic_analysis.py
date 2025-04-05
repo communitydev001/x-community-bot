@@ -105,18 +105,18 @@ def analyze_trending_topics(tweets):
     }
 
 def create_summary(analysis_results, tweet_count):
-    """Generate a readable summary from the analysis results"""
+    """Generate a readable summary from the analysis results with engagement focus"""
     
     from datetime import datetime
     
     current_date = datetime.now().strftime("%Y-%m-%d")
-    summary = f"📊 Daily Community Trends: {current_date} 📊\n\n"
+    summary = f"📊 Nigerian UK Community Trends: {current_date} 📊\n\n"
     
     # Add trending hashtags
     if analysis_results["hashtags"]:
         summary += "🔥 Top Hashtags:\n"
         for i, (hashtag, count) in enumerate(analysis_results["hashtags"][:5], 1):
-            summary += f"{i}. #{hashtag} ({count} mentions)\n"
+            summary += f"{i}. #{hashtag} ({count} weighted mentions)\n"
         summary += "\n"
     
     # Add trending phrases
@@ -126,7 +126,24 @@ def create_summary(analysis_results, tweet_count):
             summary += f"{i}. {phrase} ({count} mentions)\n"
         summary += "\n"
     
+    # Add top conversations if available
+    if "top_conversations" in analysis_results and analysis_results["top_conversations"]:
+        summary += "🗣️ Most Active Discussions:\n"
+        for i, (convo_id, data) in enumerate(analysis_results["top_conversations"][:3], 1):
+            preview = data['sample_text']
+            summary += f"{i}. \"{preview}...\" ({data['count']} replies, {data['engagement']:.0f} engagement)\n"
+        summary += "\n"
+    
+    # Add high engagement tweets if available
+    if "high_engagement" in analysis_results and analysis_results["high_engagement"]:
+        summary += "⭐ Most Engaging Tweet:\n"
+        top_tweet = analysis_results["high_engagement"][0]
+        # Truncate text to fit in tweet
+        preview = top_tweet['text'][:100] + "..." if len(top_tweet['text']) > 100 else top_tweet['text']
+        summary += f"\"{preview}\"\n"
+        summary += f"Engagement score: {top_tweet['engagement']:.0f}\n\n"
+    
     # Add simple stats
-    summary += f"Today's activity: {tweet_count} tweets analyzed"
+    summary += f"Today's activity: {tweet_count} tweets analyzed from Nigerians in the UK"
     
     return summary
